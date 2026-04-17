@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(/usr/local/bin/npm install *)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//Users/mcbs/.nvm/versions/**)",
+      "Bash(command -v npm)",
+      "Bash(pkgutil --pkgs)",
+      "Bash(brew list *)",
+      "Bash(ls /)",
+      "Bash(sw_vers)",
+      "Bash(curl -fsSL https://fnm.vercel.app/install)",
+      "Bash(bash)",
+      "Bash(curl -o /tmp/node.pkg \"https://nodejs.org/dist/v22.12.0/node-v22.12.0.pkg\")",
+      "Bash(sudo installer *)",
+      "Bash(mkdir -p /tmp/node-install)",
+      "Read(//tmp/**)",
+      "Bash(curl -fsSL \"https://nodejs.org/dist/v22.12.0/node-v22.12.0-darwin-arm64.tar.gz\" -o node.tar.gz)",
+      "Bash(tar xzf *)",
+      "Bash(export PATH=\"/tmp/node-install/node-v22.12.0-darwin-arm64/bin:$PATH\")",
+      "Bash(npm --version)",
+      "Bash(npm run *)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(curl -fsSL https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_macOS_arm64.tar.gz -o /tmp/gh.tar.gz)",
+      "Bash(curl -fsSL https://github.com/cli/cli/releases/download/v2.63.0/gh_2.63.0_macOS_arm64.tar.gz -o /tmp/gh.tar.gz)",
+      "Bash(tail -2 echo \"exit: $?\" ls -lh /tmp/gh.tar.gz)",
+      "Bash(curl -fsSL \"https://github.com/cli/cli/releases/download/v2.90.0/gh_2.90.0_macOS_arm64.tar.gz\" -o /tmp/gh.tar.gz)",
+      "Bash(curl -s \"https://api.github.com/repos/cli/cli/releases/latest\")",
+      "Bash(curl -fsSL \"https://github.com/cli/cli/releases/download/v2.90.0/gh_2.90.0_macOS_arm64.zip\" -o /tmp/gh.zip)",
+      "Bash(unzip -o /tmp/gh.zip -d /tmp/gh-extract)",
+      "Bash(export PATH=\"/tmp/gh-extract/gh_2.90.0_macOS_arm64/bin:$PATH\")",
+      "Bash(gh auth *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Initial commit: Missionly - Next.js + Supabase migration *)",
+      "Bash(echo \"Committed: $?\")"
+    ]
+  }
+}
