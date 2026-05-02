@@ -3,7 +3,7 @@ import {
   Zap, Music, Paintbrush, ShoppingCart, Shirt, Trash2, Droplets,
   Baby, Dog, Cat, Fish, Bike, Dumbbell, Apple, Pizza, Car,
   Home, Flower2, Scissors, Wrench, Gamepad2, Tv, Laptop, Phone,
-  Check, X, Plus, Clock,
+  Check, X, Plus, Clock, Smile, Backpack, Footprints,
   type LucideIcon
 } from 'lucide-react'
 
@@ -48,6 +48,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
   x: X,
   plus: Plus,
   clock: Clock,
+  smile: Smile,
+  teeth: Smile,
+  backpack: Backpack,
+  footprints: Footprints,
+  shoes: Footprints,
 }
 
 export const CHORE_ICON_OPTIONS = [
@@ -71,6 +76,9 @@ export const CHORE_ICON_OPTIONS = [
   { value: 'dumbbell', label: 'Exercise' },
   { value: 'apple', label: 'Food' },
   { value: 'home', label: 'Home' },
+  { value: 'smile', label: 'Brush Teeth' },
+  { value: 'backpack', label: 'Backpack' },
+  { value: 'footprints', label: 'Shoes' },
 ]
 
 export function getChoreIcon(iconName: string): LucideIcon {

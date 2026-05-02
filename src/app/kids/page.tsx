@@ -10,14 +10,14 @@ import { Badge } from '@/components/ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import {
   Star, Settings, LogOut, ChevronLeft, ChevronRight,
-  CheckCircle2, Circle, Trophy, PiggyBank, Target, Gift,
+  CheckCircle2, Circle, PiggyBank, Target, Gift, Plus, Minus,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { getChoreIcon } from '@/lib/icons'
 import { formatCents, getTodayStr, getCurrentTimeOfDay } from '@/lib/utils'
 import type {
   Child, DailyChore, ChildChallengeProgress, PiggyBalances,
-  PointsSummary, PiggyGoal, Reward, LeaderboardEntry,
+  PointsSummary, PiggyGoal, Reward,
 } from '@/types'
 
 // ==========================================
@@ -69,6 +69,19 @@ function KidCard({ child }: { child: Child }) {
     onSuccess: (data) => {
       if (data.completed) toast.success('+Points earned!')
       qc.invalidateQueries({ queryKey: ['daily-chores', child.id, today] })
+      qc.invalidateQueries({ queryKey: ['points-summary', child.id] })
+    },
+  })
+
+  const incrementChallenge = useMutation({
+    mutationFn: ({ challengeId, delta }: { challengeId: number; delta: number }) =>
+      fetch(`/api/challenges/${challengeId}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ childId: child.id, date: today, deltaCount: delta }),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['child-challenges', child.id] })
       qc.invalidateQueries({ queryKey: ['points-summary', child.id] })
     },
   })
@@ -236,7 +249,23 @@ function KidCard({ child }: { child: Child }) {
                 <div key={ch.challengeId} className="bg-white border border-neutral-200 rounded-xl p-3">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-sm font-medium">{ch.title}</span>
-                    <span className="text-xs text-neutral-500">{ch.currentCount}/{ch.targetCount}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => ch.currentCount > 0 && incrementChallenge.mutate({ challengeId: ch.challengeId, delta: -1 })}
+                        disabled={ch.currentCount === 0 || incrementChallenge.isPending}
+                        className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 disabled:opacity-40"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="text-xs text-neutral-500 w-12 text-center">{ch.currentCount}/{ch.targetCount}</span>
+                      <button
+                        onClick={() => incrementChallenge.mutate({ challengeId: ch.challengeId, delta: 1 })}
+                        disabled={ch.currentCount >= ch.targetCount || incrementChallenge.isPending}
+                        className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 disabled:opacity-40"
+                      >
+                        <Plus className="w-3 h-3 text-primary" />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-xs text-neutral-400 mb-1.5">{ch.goalDescription}</p>
                   <Progress value={pct} className="h-1.5" />
@@ -260,8 +289,8 @@ function KidCard({ child }: { child: Child }) {
                 <span className="font-medium" style={{ color }}>{cat}</span>
                 <span className="text-neutral-600 font-semibold">{formatCents(balances[cat as keyof PiggyBalances])}</span>
               </div>
-              {cat !== 'FUN' && (() => {
-                const goal = cat === 'SAVINGS' ? savingsGoal : donateGoal
+              {(() => {
+                const goal = cat === 'SAVINGS' ? savingsGoal : cat === 'DONATE' ? donateGoal : undefined
                 if (!goal) return null
                 const pct = Math.min(100, Math.round((balances[cat as keyof PiggyBalances] / goal.target_amount_cents) * 100))
                 return (
@@ -273,72 +302,10 @@ function KidCard({ child }: { child: Child }) {
                   </div>
                 )
               })()}
-              {cat === 'FUN' && (
-                <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: color, opacity: 0.3 }} />
-                </div>
-              )}
             </div>
           ))}
         </div>
       </section>
-    </div>
-  )
-}
-
-// ==========================================
-// LEADERBOARD
-// ==========================================
-
-function Leaderboard() {
-  const [range, setRange] = useState<'today' | 'week' | 'month' | 'all'>('all')
-
-  const { data: entries = [] } = useQuery<LeaderboardEntry[]>({
-    queryKey: ['leaderboard', range],
-    queryFn: () => fetch(`/api/leaderboard?range=${range}`).then((r) => r.json()),
-  })
-
-  return (
-    <div className="bg-white border border-neutral-200 rounded-2xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-          <Trophy className="w-4 h-4 text-accent-500" />
-          Leaderboard
-        </h3>
-        <div className="flex gap-1">
-          {(['today', 'week', 'month', 'all'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                range === r ? 'bg-primary text-white' : 'text-neutral-500 hover:bg-neutral-100'
-              }`}
-            >
-              {r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="space-y-2">
-        {entries.map((entry, i) => (
-          <div key={entry.childId} className="flex items-center gap-3">
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-              i === 0 ? 'bg-accent text-accent-foreground' : 'bg-neutral-100 text-neutral-500'
-            }`}>
-              {i + 1}
-            </span>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
-              style={{ backgroundColor: entry.avatarColor }}>
-              {entry.childName[0]}
-            </div>
-            <span className="flex-1 text-sm font-medium">{entry.childName}</span>
-            <span className="text-sm font-bold text-primary">{entry.totalPoints} pts</span>
-          </div>
-        ))}
-        {entries.length === 0 && (
-          <p className="text-center text-sm text-neutral-400 py-4">No data yet</p>
-        )}
-      </div>
     </div>
   )
 }
@@ -440,8 +407,6 @@ export default function KidsPage() {
               </div>
             </div>
 
-            {/* Leaderboard (shown when 2+ children) */}
-            {children.length >= 2 && <Leaderboard />}
           </div>
         )}
       </main>
