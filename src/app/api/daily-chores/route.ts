@@ -60,10 +60,12 @@ export async function GET(request: Request) {
         icon: tpl.icon,
         points: tpl.points,
         timeOfDay: tpl.time_of_day,
+        sortOrder: tpl.sort_order ?? 0,
         completed: !!completion,
         completionId: completion?.id || null,
       }
     })
+    .sort((a, b) => a.sortOrder - b.sortOrder)
 
   return NextResponse.json(dailyChores)
 }

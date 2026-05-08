@@ -10,6 +10,7 @@ export async function GET() {
     .from('chore_templates')
     .select('*, chore_assignment_rules(*, children(name))')
     .eq('household_id', householdId)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

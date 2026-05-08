@@ -3,6 +3,22 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +27,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Pencil, Trash2, ListChecks } from 'lucide-react'
+import { Plus, Pencil, Trash2, ListChecks, GripVertical } from 'lucide-react'
 import { getChoreIcon, CHORE_ICON_OPTIONS } from '@/lib/icons'
 import { getDayName } from '@/lib/utils'
 import type { Child, ChoreTemplate } from '@/types'
@@ -24,6 +40,10 @@ interface ChoreWithRules extends ChoreTemplate {
     children: { name: string }
   }>
 }
+
+// ==========================================
+// CHORE FORM
+// ==========================================
 
 function ChoreForm({
   initial,
@@ -202,20 +222,137 @@ function ChoreForm({
   )
 }
 
+// ==========================================
+// SORTABLE CHORE ROW
+// ==========================================
+
+function SortableChoreRow({
+  chore,
+  onEdit,
+  onDelete,
+}: {
+  chore: ChoreWithRules
+  onEdit: (chore: ChoreWithRules) => void
+  onDelete: (id: number) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: chore.id,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  const Icon = getChoreIcon(chore.icon)
+  const assignedChildren = chore.chore_assignment_rules.filter((r) => r.active)
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card>
+        <CardContent className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            {/* Drag handle */}
+            <button
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing text-neutral-300 hover:text-neutral-500 touch-none"
+              aria-label="Drag to reorder"
+            >
+              <GripVertical className="w-5 h-5" />
+            </button>
+
+            <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
+              <Icon className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium">{chore.title}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="outline" className="text-xs">{chore.points} pts</Badge>
+                <Badge variant="outline" className="text-xs">{chore.time_of_day.replace('_', ' ')}</Badge>
+                {assignedChildren.map((r) => (
+                  <Badge key={r.id} className="text-xs bg-secondary/10 text-secondary border-0">
+                    {r.children?.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-primary"
+              onClick={() => onEdit(chore)}>
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-red-500"
+              onClick={() => { if (confirm('Delete chore?')) onDelete(chore.id) }}>
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ==========================================
+// MAIN PAGE
+// ==========================================
+
 export default function AdminChores() {
   const qc = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [editChore, setEditChore] = useState<ChoreWithRules | null>(null)
+  const [localChores, setLocalChores] = useState<ChoreWithRules[] | null>(null)
 
-  const { data: chores = [], isLoading } = useQuery<ChoreWithRules[]>({
+  const { data: fetchedChores = [], isLoading } = useQuery<ChoreWithRules[]>({
     queryKey: ['chores'],
     queryFn: () => fetch('/api/chores').then((r) => r.json()),
   })
+
+  // Use local ordering while dragging; fall back to server data
+  const chores = localChores ?? fetchedChores
 
   const { data: children = [] } = useQuery<Child[]>({
     queryKey: ['children'],
     queryFn: () => fetch('/api/children').then((r) => r.json()),
   })
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  )
+
+  const reorder = useMutation({
+    mutationFn: (ids: number[]) =>
+      fetch('/api/chores/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chores'] })
+      setLocalChores(null)
+    },
+    onError: () => {
+      toast.error('Failed to save order')
+      setLocalChores(null)
+      qc.invalidateQueries({ queryKey: ['chores'] })
+    },
+  })
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = chores.findIndex((c) => c.id === active.id)
+    const newIndex = chores.findIndex((c) => c.id === over.id)
+    const reordered = arrayMove(chores, oldIndex, newIndex)
+
+    setLocalChores(reordered)
+    reorder.mutate(reordered.map((c) => c.id))
+  }
 
   const create = useMutation({
     mutationFn: (body: Parameters<typeof ChoreForm>[0]['onSave'] extends (d: infer D) => void ? D : never) =>
@@ -228,6 +365,7 @@ export default function AdminChores() {
       if (data.error) { toast.error(data.error); return }
       toast.success('Chore created!')
       qc.invalidateQueries({ queryKey: ['chores'] })
+      setLocalChores(null)
       setCreateOpen(false)
     },
   })
@@ -242,7 +380,6 @@ export default function AdminChores() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      // Delete old rules and recreate
       const oldRules = editChore?.chore_assignment_rules || []
       for (const rule of oldRules) {
         await fetch(`/api/chore-rules/${rule.id}`, { method: 'DELETE' })
@@ -268,6 +405,7 @@ export default function AdminChores() {
     onSuccess: () => {
       toast.success('Chore deleted')
       qc.invalidateQueries({ queryKey: ['chores'] })
+      setLocalChores(null)
     },
   })
 
@@ -276,7 +414,7 @@ export default function AdminChores() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Chores</h1>
-          <p className="text-neutral-500 text-sm mt-1">Define and assign daily chores</p>
+          <p className="text-neutral-500 text-sm mt-1">Define and assign daily chores · drag to reorder</p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
@@ -306,45 +444,20 @@ export default function AdminChores() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {chores.map((chore) => {
-            const Icon = getChoreIcon(chore.icon)
-            const assignedChildren = chore.chore_assignment_rules.filter((r) => r.active)
-            return (
-              <Card key={chore.id}>
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{chore.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="outline" className="text-xs">{chore.points} pts</Badge>
-                        <Badge variant="outline" className="text-xs">{chore.time_of_day.replace('_', ' ')}</Badge>
-                        {assignedChildren.map((r) => (
-                          <Badge key={r.id} className="text-xs bg-secondary/10 text-secondary border-0">
-                            {r.children?.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-primary"
-                      onClick={() => setEditChore(chore)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-red-500"
-                      onClick={() => { if (confirm('Delete chore?')) remove.mutate(chore.id) }}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={chores.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
+              {chores.map((chore) => (
+                <SortableChoreRow
+                  key={chore.id}
+                  chore={chore}
+                  onEdit={setEditChore}
+                  onDelete={(id) => remove.mutate(id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <Dialog open={!!editChore} onOpenChange={(o) => !o && setEditChore(null)}>

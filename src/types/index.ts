@@ -42,6 +42,7 @@ export interface ChoreTemplate {
   points: number
   time_of_day: 'MORNING' | 'AFTERNOON' | 'ALL_DAY'
   active: boolean
+  sort_order: number
   created_at: string
 }
 
