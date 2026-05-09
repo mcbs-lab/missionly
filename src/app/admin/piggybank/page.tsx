@@ -154,27 +154,42 @@ export default function AdminPiggybank() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold">Piggybank</h1>
           <p className="text-neutral-500 text-sm mt-1">Manage Fun, Savings & Donate accounts</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => runRecurring.mutate()} disabled={runRecurring.isPending}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Run Recurring
-          </Button>
-          {children.length > 1 && (
-            <select
-              className="border rounded-md px-3 py-2 text-sm"
-              value={childId || ''}
-              onChange={(e) => setSelectedChild(Number(e.target.value))}
-            >
-              {children.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
-        </div>
+        <Button variant="outline" size="sm" onClick={() => runRecurring.mutate()} disabled={runRecurring.isPending}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Run Recurring
+        </Button>
       </div>
+
+      {/* Child selector */}
+      {children.length > 0 && (
+        <div className="flex gap-3 mb-6">
+          {children.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setSelectedChild(c.id)}
+              className={`flex items-center gap-2.5 px-5 py-3 rounded-xl font-medium text-sm transition-all ${
+                childId === c.id
+                  ? 'text-white shadow-md scale-105'
+                  : 'bg-white border-2 border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:shadow-sm'
+              }`}
+              style={childId === c.id ? { backgroundColor: c.avatar_color, borderColor: c.avatar_color } : {}}
+            >
+              <span
+                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                style={{ backgroundColor: childId === c.id ? 'rgba(255,255,255,0.3)' : c.avatar_color }}
+              >
+                {c.name[0]}
+              </span>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Balance summary */}
       {childId && (
