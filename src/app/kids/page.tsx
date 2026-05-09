@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import {
   Star, Settings, LogOut, ChevronLeft, ChevronRight,
-  CheckCircle2, Circle, PiggyBank, Target, Gift, Plus, Minus,
+  CheckCircle2, Circle, PiggyBank, Target, Gift, Plus, Minus, ShoppingBag,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { getChoreIcon } from '@/lib/icons'
-import { formatCents, getTodayStr, getCurrentTimeOfDay } from '@/lib/utils'
+import { formatCents, getTodayStr, getCurrentTimeOfDay, dollarsToCents } from '@/lib/utils'
 import type {
   Child, DailyChore, ChildChallengeProgress, PiggyBalances,
   PointsSummary, PiggyGoal, Reward,
@@ -70,6 +72,33 @@ function KidCard({ child }: { child: Child }) {
       if (data.completed) toast.success('+Points earned!')
       qc.invalidateQueries({ queryKey: ['daily-chores', child.id, today] })
       qc.invalidateQueries({ queryKey: ['points-summary', child.id] })
+    },
+  })
+
+  // Spend money dialog
+  const [spendOpen, setSpendOpen] = useState(false)
+  const [spendCat, setSpendCat] = useState<'FUN' | 'SAVINGS' | 'DONATE'>('FUN')
+  const [spendAmount, setSpendAmount] = useState('')
+
+  const spendMoney = useMutation({
+    mutationFn: () =>
+      fetch('/api/piggy/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          childId: child.id,
+          category: spendCat,
+          amountCents: -dollarsToCents(spendAmount),
+          title: `Spent from ${spendCat.charAt(0) + spendCat.slice(1).toLowerCase()}`,
+          date: today,
+        }),
+      }).then((r) => r.json()),
+    onSuccess: (data) => {
+      if (data.error) { toast.error(data.error); return }
+      toast.success('Spent! 🛍️')
+      qc.invalidateQueries({ queryKey: ['piggy-balances', child.id] })
+      setSpendOpen(false)
+      setSpendAmount('')
     },
   })
 
@@ -278,10 +307,19 @@ function KidCard({ child }: { child: Child }) {
 
       {/* Piggybank */}
       <section>
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-700 mb-2">
-          <PiggyBank className="w-4 h-4 text-secondary" />
-          Piggybank
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+            <PiggyBank className="w-4 h-4 text-secondary" />
+            Piggybank
+          </h3>
+          <button
+            onClick={() => setSpendOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            Spend
+          </button>
+        </div>
         <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
           {([['FUN', '#7C3AED'], ['SAVINGS', '#0D9488'], ['DONATE', '#FACC15']] as [string, string][]).map(([cat, color]) => (
             <div key={cat}>
@@ -305,6 +343,86 @@ function KidCard({ child }: { child: Child }) {
             </div>
           ))}
         </div>
+
+        {/* Spend dialog */}
+        <Dialog open={spendOpen} onOpenChange={(o) => { setSpendOpen(o); if (!o) setSpendAmount('') }}>
+          <DialogContent className="max-w-sm mx-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-primary" />
+                Spend Money
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-5 pt-1">
+              {/* Account selector */}
+              <div>
+                <p className="text-sm font-medium text-neutral-600 mb-2">Which account?</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    ['FUN', '#7C3AED'],
+                    ['SAVINGS', '#0D9488'],
+                    ['DONATE', '#FACC15'],
+                  ] as ['FUN' | 'SAVINGS' | 'DONATE', string][]).map(([cat, color]) => {
+                    const bal = balances[cat]
+                    const active = spendCat === cat
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSpendCat(cat)}
+                        className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
+                          active ? 'text-white shadow-md' : 'bg-white text-neutral-600 hover:shadow-sm'
+                        }`}
+                        style={{
+                          backgroundColor: active ? color : undefined,
+                          borderColor: active ? color : '#e5e7eb',
+                        }}
+                      >
+                        <span className="text-xs font-bold">{cat.charAt(0) + cat.slice(1).toLowerCase()}</span>
+                        <span className={`text-xs mt-0.5 ${active ? 'text-white/80' : 'text-neutral-400'}`}>
+                          {formatCents(bal)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Amount input */}
+              <div>
+                <p className="text-sm font-medium text-neutral-600 mb-2">How much?</p>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 font-medium">$</span>
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={spendAmount}
+                    onChange={(e) => setSpendAmount(e.target.value)}
+                    className="pl-7 text-lg font-semibold"
+                  />
+                </div>
+                {spendAmount && dollarsToCents(spendAmount) > balances[spendCat] && (
+                  <p className="text-xs text-red-500 mt-1">Not enough in {spendCat.charAt(0) + spendCat.slice(1).toLowerCase()}</p>
+                )}
+              </div>
+
+              {/* Confirm button */}
+              <Button
+                className="w-full h-12 text-base font-semibold"
+                disabled={
+                  spendMoney.isPending ||
+                  !spendAmount ||
+                  dollarsToCents(spendAmount) <= 0 ||
+                  dollarsToCents(spendAmount) > balances[spendCat]
+                }
+                onClick={() => spendMoney.mutate()}
+              >
+                {spendMoney.isPending ? 'Spending...' : `Spend ${spendAmount ? formatCents(dollarsToCents(spendAmount)) : ''}`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </section>
     </div>
   )
