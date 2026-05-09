@@ -6,7 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getTodayStr(): string {
-  return new Date().toISOString().split('T')[0]
+  // Use local date (not UTC) so the day resets at the user's local midnight,
+  // not at UTC midnight (which can differ by many hours from the user's timezone).
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export function formatCents(cents: number): string {
