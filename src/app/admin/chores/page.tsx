@@ -252,24 +252,41 @@ function SortableChoreRow({
   return (
     <div ref={setNodeRef} style={style}>
       <Card>
-        <CardContent className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
+        <CardContent className="p-3">
+          <div className="flex items-start gap-2">
             {/* Drag handle */}
             <button
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing text-neutral-300 hover:text-neutral-500 touch-none"
+              className="cursor-grab active:cursor-grabbing text-neutral-300 hover:text-neutral-500 touch-none mt-1 flex-shrink-0"
               aria-label="Drag to reorder"
             >
               <GripVertical className="w-5 h-5" />
             </button>
 
-            <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-              <Icon className="w-5 h-5 text-primary" />
+            {/* Icon */}
+            <div className="w-9 h-9 bg-primary-50 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Icon className="w-4 h-4 text-primary" />
             </div>
-            <div>
-              <p className="font-medium">{chore.title}</p>
-              <div className="flex items-center gap-2 mt-0.5">
+
+            {/* Title + badges + actions */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium text-sm leading-tight pt-0.5">{chore.title}</p>
+                {/* Action buttons pinned top-right */}
+                <div className="flex gap-0.5 flex-shrink-0">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-neutral-400 hover:text-primary"
+                    onClick={() => onEdit(chore)}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-neutral-400 hover:text-red-500"
+                    onClick={() => { if (confirm('Delete chore?')) onDelete(chore.id) }}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+              {/* Badges — wrap on small screens */}
+              <div className="flex flex-wrap items-center gap-1 mt-1">
                 <Badge variant="outline" className="text-xs">{chore.points} pts</Badge>
                 <Badge variant="outline" className="text-xs">{chore.time_of_day.replace('_', ' ')}</Badge>
                 {assignedChildren.map((r) => (
@@ -279,16 +296,6 @@ function SortableChoreRow({
                 ))}
               </div>
             </div>
-          </div>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-primary"
-              onClick={() => onEdit(chore)}>
-              <Pencil className="w-3.5 h-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-400 hover:text-red-500"
-              onClick={() => { if (confirm('Delete chore?')) onDelete(chore.id) }}>
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
           </div>
         </CardContent>
       </Card>
