@@ -79,6 +79,7 @@ function KidCard({ child }: { child: Child }) {
   const [spendOpen, setSpendOpen] = useState(false)
   const [spendCat, setSpendCat] = useState<'FUN' | 'SAVINGS' | 'DONATE'>('FUN')
   const [spendAmount, setSpendAmount] = useState('')
+  const [spendDesc, setSpendDesc] = useState('')
 
   const spendMoney = useMutation({
     mutationFn: () =>
@@ -89,7 +90,7 @@ function KidCard({ child }: { child: Child }) {
           childId: child.id,
           category: spendCat,
           amountCents: -dollarsToCents(spendAmount),
-          title: `Spent from ${spendCat.charAt(0) + spendCat.slice(1).toLowerCase()}`,
+          title: spendDesc.trim() || `Spent from ${spendCat.charAt(0) + spendCat.slice(1).toLowerCase()}`,
           date: today,
         }),
       }).then((r) => r.json()),
@@ -99,6 +100,7 @@ function KidCard({ child }: { child: Child }) {
       qc.invalidateQueries({ queryKey: ['piggy-balances', child.id] })
       setSpendOpen(false)
       setSpendAmount('')
+      setSpendDesc('')
     },
   })
 
@@ -345,7 +347,7 @@ function KidCard({ child }: { child: Child }) {
         </div>
 
         {/* Spend dialog */}
-        <Dialog open={spendOpen} onOpenChange={(o) => { setSpendOpen(o); if (!o) setSpendAmount('') }}>
+        <Dialog open={spendOpen} onOpenChange={(o) => { setSpendOpen(o); if (!o) { setSpendAmount(''); setSpendDesc('') } }}>
           <DialogContent className="max-w-sm mx-4">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -385,6 +387,19 @@ function KidCard({ child }: { child: Child }) {
                     )
                   })}
                 </div>
+              </div>
+
+              {/* Description (optional) */}
+              <div>
+                <p className="text-sm font-medium text-neutral-600 mb-2">
+                  What for? <span className="font-normal text-neutral-400">(optional)</span>
+                </p>
+                <Input
+                  placeholder="e.g. Ice cream, toy car…"
+                  value={spendDesc}
+                  onChange={(e) => setSpendDesc(e.target.value)}
+                  maxLength={60}
+                />
               </div>
 
               {/* Amount input */}
