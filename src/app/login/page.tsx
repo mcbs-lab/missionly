@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Star, Zap } from 'lucide-react'
+import { Star, Zap, ArrowLeft } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -17,6 +18,11 @@ export default function LoginPage() {
   // Login form
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
+
+  // Forgot password
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
 
   // Register form
   const [regName, setRegName] = useState('')
@@ -39,6 +45,23 @@ export default function LoginPage() {
       router.refresh()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      setForgotSent(true)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send reset email')
     } finally {
       setLoading(false)
     }
@@ -83,6 +106,45 @@ export default function LoginPage() {
 
         <Card className="shadow-xl border-0">
           <CardContent className="pt-6">
+            {/* Forgot password panel */}
+            {forgotOpen ? (
+              <div className="space-y-4">
+                <button
+                  onClick={() => { setForgotOpen(false); setForgotSent(false); setForgotEmail('') }}
+                  className="flex items-center gap-1 text-sm text-neutral-500 hover:text-primary"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Back to sign in
+                </button>
+                <div>
+                  <h2 className="font-semibold text-neutral-800">Reset your password</h2>
+                  <p className="text-sm text-neutral-500 mt-1">
+                    Enter your email and we&apos;ll send you a reset link.
+                  </p>
+                </div>
+                {forgotSent ? (
+                  <div className="rounded-lg bg-secondary/10 border border-secondary/20 p-4 text-sm text-secondary font-medium text-center">
+                    Check your inbox — reset link sent to {forgotEmail}
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgot} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email">Email</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="family@example.com"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Sending…' : 'Send reset link'}
+                    </Button>
+                  </form>
+                )}
+              </div>
+            ) : (
             <Tabs defaultValue="login">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Sign In</TabsTrigger>
@@ -116,6 +178,13 @@ export default function LoginPage() {
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? 'Signing in...' : 'Sign In'}
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => setForgotOpen(true)}
+                    className="w-full text-center text-sm text-neutral-400 hover:text-primary"
+                  >
+                    Forgot password?
+                  </button>
                 </form>
               </TabsContent>
 
@@ -160,6 +229,7 @@ export default function LoginPage() {
                 </form>
               </TabsContent>
             </Tabs>
+            )}
           </CardContent>
         </Card>
 
